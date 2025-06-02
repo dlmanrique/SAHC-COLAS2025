@@ -1,5 +1,7 @@
 # Exploring Segment-level Semantics for Online Phase Recognition from Surgical Videos
 
+# Adapted to run using LED dataset
+
 ## Introduction
 
 This is a PyTorch implementation of IEEE TMI [Exploring Segment-level Semantics for Online Phase Recognition from Surgical Videos](https://arxiv.org/pdf/2111.11044.pdf)
