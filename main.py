@@ -33,7 +33,7 @@ torch.backends.cudnn.deterministic = True
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--action', default='hierarch_train')
-parser.add_argument('--dataset', default="m2cai16")
+parser.add_argument('--dataset', default="M2CAI")
 parser.add_argument('--dataset_path', default="./datasets/{}/")
 
 # parser.add_argument('--dataset', default="cholec80")
@@ -73,10 +73,10 @@ learning_rate = 5e-5
 epochs = 100
 refine_epochs = 40
 
-f_path = os.path.abspath('..')
-root_path = f_path.split('surgical_code')[0]
+#f_path = os.path.abspath('..')
+root_path = os.getcwd()
 
-if args.dataset == 'm2cai16':
+if args.dataset == 'M2CAI':
     refine_epochs = 15 # early stopping
     args.num_classes = 8
    
@@ -86,8 +86,9 @@ mse_layer = nn.MSELoss(reduction='none')
 
 
 num_stages = 3  # refinement stages
-if args.dataset == 'm2cai16':
+if args.dataset == 'M2CAI':
     num_stages = 2 # for over-fitting
+    
 num_layers = 12 # layers of prediction tcn e
 num_f_maps = 64
 dim = 2048
@@ -99,7 +100,7 @@ args.num_classes = num_classes
 num_layers_PG = args.num_layers_PG
 num_layers_R = args.num_layers_R
 num_R = args.num_R
-
+args.split = 'test' if args.action == 'hierarch_predict' else 'train'
 
 
 print(args)
@@ -121,10 +122,10 @@ elif args.action == 'hierarch_predict':
    
     # print('ssss')
    
-    model_path = '' # use your model
-   
+    model_path = f'best_models_weights/best_{args.dataset}.model' # use your model
+    
     base_model.load_state_dict(torch.load(model_path))
-    video_testdataset =TestVideoDataset(args.dataset, root_path+ args.dataset_path.format(args.dataset) + '/test_dataset', test_sample_rate, 'video_feature')
+    video_testdataset =TestVideoDataset(args.dataset, root_path + f'/datasets/{args.dataset}' + '/test_dataset', test_sample_rate, args)
     video_test_dataloader = DataLoader(video_testdataset, batch_size=1, shuffle=False, drop_last=False)
     base_predict(base_model,args, device, video_test_dataloader)
 

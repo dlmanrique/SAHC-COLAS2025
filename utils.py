@@ -10,7 +10,7 @@ import torch.nn as nn
 
 import seaborn as sns
 phase2label_dicts = {
-    'cholec80':{
+    'Cholec80':{
     'Preparation':0,
     'CalotTriangleDissection':1,
     'ClippingCutting':2,
@@ -19,7 +19,7 @@ phase2label_dicts = {
     'CleaningCoagulation':5,
     'GallbladderRetraction':6},
     
-    'm2cai16':{
+    'M2CAI':{
     'TrocarPlacement':0,
     'Preparation':1,
     'CalotTriangleDissection':2,
