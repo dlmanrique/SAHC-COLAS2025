@@ -41,7 +41,6 @@ def hierarch_train(args, model, train_loader, validation_loader, device, save_di
         if epoch % 30 == 0:
             args.learning_rate = args.learning_rate * 0.5
        
-        
         correct = 0
         total = 0
         loss_item = 0
@@ -197,10 +196,10 @@ def hierarch_test(args, model, test_loader, device, random_mask=False):
                 all_out = F.softmax(all_out,dim=1)
 
                 probabilty_list.append(all_out.transpose(1,2))
-            # print(max_seq)
+
             print('Test  Acc {}, Loss {}, ms {}'.format( correct / total, loss_item /total, ms_item/total))
-            # print('BMG precision {}, BMG recall {}'.format(precision/(n_iter+1), recall/(n_iter+1) ))
-            # print(len(label_total))
+
+
             for (kc, vc), (kall, vall) in zip(label_correct.items(),label_total.items()):
                 print("{} acc: {}".format(kc, vc/vall))
             return correct / total, all_preds, probabilty_list, video_name_list
@@ -209,7 +208,7 @@ def hierarch_test(args, model, test_loader, device, random_mask=False):
 def base_predict(model, args, device,test_loader, pki = False,split='test'):
 
     phase2label_dicts = {
-    'cholec80':{
+    'Cholec80':{
     'Preparation':0,
     'CalotTriangleDissection':1,
     'ClippingCutting':2,
@@ -218,7 +217,7 @@ def base_predict(model, args, device,test_loader, pki = False,split='test'):
     'CleaningCoagulation':5,
     'GallbladderRetraction':6},
     
-    'm2cai16':{
+    'M2CAI':{
     'TrocarPlacement':0,
     'Preparation':1,
     'CalotTriangleDissection':2,
@@ -228,6 +227,7 @@ def base_predict(model, args, device,test_loader, pki = False,split='test'):
     'CleaningCoagulation':6,
     'GallbladderRetraction':7}
     }
+
     model.to(device)
     model.eval()
     save_name = '{}_hier{}_trans{}'.format(args.sample_rate,args.hier,args.trans)
@@ -242,35 +242,34 @@ def base_predict(model, args, device,test_loader, pki = False,split='test'):
         os.makedirs(pic_save_dir)
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
-   
+    
     with torch.no_grad():
-        correct =0
-        total =0 
-        for (video, labels, mask, video_name) in tqdm(test_loader):
+        correct= 0
+        total= 0 
+        for (video, labels, video_name) in tqdm(test_loader):
             labels = torch.Tensor(labels).long()
-            mask = torch.Tensor(mask).float()
+
             print(video.size(),video_name,labels.size())
             video = video.to(device)
             labels = labels.to(device)
-            mask = mask.to(device)
-            # re = model(video)
+            
+            # Calculate model predictions for each 4 segmente feature level
             predicted_list, feature_list, _ = model(video)
-                
+            # Part d of the diagram, join all the information and produce the final output
             all_out, resize_list,labels_list = fusion(predicted_list,labels, args)
+
             if args.last:
                     all_out =  resize_list[-1]
-            if args.first:
+
+            if args.first: # For inference is True
                     all_out = resize_list[0]
-            confidence, predicted = torch.max(F.softmax(all_out.data,1), 1)
+            
+            confidence, predicted = torch.max(F.softmax(all_out.data, 1), 1)
            
-
-           
-
+            # Calculate manual accuracy
             correct += ((predicted == labels).sum()).item()
             total += labels.shape[0]
 
-
-        
             predicted = predicted.squeeze(0).tolist()
             confidence = confidence.squeeze(0).tolist()
             
@@ -334,18 +333,9 @@ def base_predict(model, args, device,test_loader, pki = False,split='test'):
                         p_phase = k
                         break
 
-                # line = phase2label_dicts[args.dataset][int(line)]
-                # f_ptr.write('{}\t{}\n'.format(index, int(line)))
                 f_ptr.write('{}\t{}\n'.format(index, p_phase))
             f_ptr.close()
 
-            # g_phase_ptr.write("Frame\tPhase\n")
-            # for index, line in enumerate(gt):
-            #     line = line.strip('\n')
-            #     _, pp = line.split('\t')
-            #     # print(index,pp)
-            #     # pp = phase2label_dicts[args.dataset][pp]
-            #     g_phase_ptr.write('{}\t{}\n'.format(index, pp))
-            # g_phase_ptr.close()
+
         print(correct/total)
 

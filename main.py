@@ -88,7 +88,7 @@ mse_layer = nn.MSELoss(reduction='none')
 num_stages = 3  # refinement stages
 if args.dataset == 'M2CAI':
     num_stages = 2 # for over-fitting
-    
+
 num_layers = 12 # layers of prediction tcn e
 num_f_maps = 64
 dim = 2048
@@ -110,10 +110,10 @@ base_model=Hierarch_TCN2(args,num_layers_PG, num_layers_R, num_R, num_f_maps, di
 
 
 if args.action == 'hierarch_train':
- 
-    video_traindataset = TestVideoDataset(args.dataset, args.dataset_path.format(args.dataset) + '/train_dataset', sample_rate, 'video_feature')
+    breakpoint()
+    video_traindataset = TestVideoDataset(args.dataset, args.dataset_path.format(args.dataset) + '/train_dataset', sample_rate, args)
     video_train_dataloader = DataLoader(video_traindataset, batch_size=1, shuffle=False, drop_last=False)
-    video_testdataset = TestVideoDataset(args.dataset, args.dataset_path.format(args.dataset) + '/test_dataset', test_sample_rate, 'video_feature')
+    video_testdataset = TestVideoDataset(args.dataset, args.dataset_path.format(args.dataset) + '/test_dataset', test_sample_rate, args)
     video_test_dataloader = DataLoader(video_testdataset, batch_size=1, shuffle=False, drop_last=False) 
     model_save_dir = 'models/{}/'.format(args.dataset)
     hierarch_train(args, base_model, video_train_dataloader, video_test_dataloader, device, save_dir=model_save_dir, debug=True)
@@ -121,7 +121,7 @@ if args.action == 'hierarch_train':
 elif args.action == 'hierarch_predict':
    
     # print('ssss')
-   
+    
     model_path = f'best_models_weights/best_{args.dataset}.model' # use your model
     
     base_model.load_state_dict(torch.load(model_path))

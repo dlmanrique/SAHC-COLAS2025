@@ -79,7 +79,7 @@ class TestVideoDataset(Dataset):
             #labels = labels[::sample_rate]
 
             #Correct video name and use the LED format
-            video_name = f'video_{int(v_f.split('.')[0].split('video')[1]) + self.gap}'
+            video_name = f'video_{int(v_f.split('.')[0].split('video')[-1].replace("_", "")) + self.gap}'
             # Use video_name to get the labels from the annotations_dataframe
             
             labels = annotations_dataframe[annotations_dataframe['video_name'] == video_name]['phases'].values.tolist()
