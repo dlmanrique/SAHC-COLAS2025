@@ -33,7 +33,7 @@ torch.backends.cudnn.deterministic = True
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--action', default='hierarch_train')
-parser.add_argument('--dataset', default="M2CAI")
+parser.add_argument('--dataset', default="Cholec80")
 parser.add_argument('--dataset_path', default="./datasets/{}/")
 
 # parser.add_argument('--dataset', default="cholec80")
@@ -76,11 +76,16 @@ refine_epochs = 40
 #f_path = os.path.abspath('..')
 root_path = os.getcwd()
 
+# Configure the number of possible classes based on the dataset. For Cholec80, Autolaparo and HeiChole is 7
 if args.dataset == 'M2CAI':
     refine_epochs = 15 # early stopping
     args.num_classes = 8
-   
-    
+
+elif args.dataset == 'HeiCo':
+    args.num_classes = 14
+
+
+
 loss_layer = nn.CrossEntropyLoss()
 mse_layer = nn.MSELoss(reduction='none')
 
@@ -111,9 +116,9 @@ base_model=Hierarch_TCN2(args,num_layers_PG, num_layers_R, num_R, num_f_maps, di
 
 if args.action == 'hierarch_train':
     breakpoint()
-    video_traindataset = TestVideoDataset(args.dataset, args.dataset_path.format(args.dataset) + '/train_dataset', sample_rate, args)
+    video_traindataset = VideoDataset(args.dataset, args, split= 'Train')
     video_train_dataloader = DataLoader(video_traindataset, batch_size=1, shuffle=False, drop_last=False)
-    video_testdataset = TestVideoDataset(args.dataset, args.dataset_path.format(args.dataset) + '/test_dataset', test_sample_rate, args)
+    video_testdataset = VideoDataset(args.dataset, args, split= 'Test')
     video_test_dataloader = DataLoader(video_testdataset, batch_size=1, shuffle=False, drop_last=False) 
     model_save_dir = 'models/{}/'.format(args.dataset)
     hierarch_train(args, base_model, video_train_dataloader, video_test_dataloader, device, save_dir=model_save_dir, debug=True)
@@ -125,7 +130,7 @@ elif args.action == 'hierarch_predict':
     model_path = f'best_models_weights/best_{args.dataset}.model' # use your model
     
     base_model.load_state_dict(torch.load(model_path))
-    video_testdataset =TestVideoDataset(args.dataset, root_path + f'/datasets/{args.dataset}' + '/test_dataset', test_sample_rate, args)
+    video_testdataset = VideoDataset(args.dataset, args)
     video_test_dataloader = DataLoader(video_testdataset, batch_size=1, shuffle=False, drop_last=False)
     base_predict(base_model,args, device, video_test_dataloader)
 

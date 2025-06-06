@@ -30,6 +30,15 @@ phase2label_dicts = {
 }
 
 
+datasets_2_videos_ids = {
+    'Autolaparo': {'Train': [f'video_{i:02}' for i in range(1, 11)], 'Valid': [f'video_{i:02}' for i in range(11, 15)], 'Test': [f'video_{i:02}' for i in range(16, 21)]},
+    'Cholec80': {'Train': [f'video_{i:02}' for i in range(22, 62)], 'Test': [f'video_{i:02}' for i in range(62, 102)]},
+    'HeiChole': {'Train': [f'video_{i:02}' for i in range(102, 118)], 'Test': [f'video_{i:02}' for i in range(118, 126)]},
+    'HeiCo': {'Train': [f'video_{i:02}' for i in range(126, 133)] + [f'video_{i:02}' for i in range(136, 143)] + [f'video_{i:02}' for i in range(146, 153)],
+              'Test': [f'video_{i:02}' for i in range(133, 136)] + [f'video_{i:02}' for i in range(143, 146)] + [f'video_{i:02}' for i in range(153, 156)]},
+    'M2CAI': {'Train': [f'video_{i:02}' for i in range(156, 183)], 'Test': [f'video_{i:02}' for i in range(183, 197)]},
+}
+
 
 
 def phase2label(phases, phase2label_dict):
@@ -43,64 +52,57 @@ def label2phase(labels, phase2label_dict):
 
 
 
-class TestVideoDataset(Dataset):
-    def __init__(self, dataset, root, sample_rate, args):
+class VideoDataset(Dataset):
+    def __init__(self, dataset, args, split):
         self.dataset = dataset
-        self.sample_rate = sample_rate
+        self.sample_rate = args.sample_rate
         self.args = args
+        self.split = split
+        self.video_names = datasets_2_videos_ids[self.dataset]
         self.videos = []
         self.labels = []
         ###      
         self.video_names = []
-        if dataset =='Cholec80':
-            self.hard_frame_index = 7
-            self.gap = 21
-        if dataset == 'M2CAI':
-            self.hard_frame_index = 8
-            #TODO: not sure if this will work for all datasets
-            self.gap = 155
 
-        video_feature_folder = os.path.join(root, 'video_feature')
+        # Obtain all dataset videos features and filter depending on the split
+        video_feature_folder = os.path.join('Resnet50_video_features', dataset)
+        # Filter features based on video id and split
+        dataset_split_video_names = datasets_2_videos_ids[self.dataset][self.split]
+        split_filtered_features_videos = [f for f in os.listdir(video_feature_folder) if any(f.startswith(v) for v in dataset_split_video_names)]
+
+        # Load corresponding labels
         labels_file = os.path.join(os.getcwd(), 'DATASETS/PHASES/annotations/Original_Datasets_Splits_Annotations/json_files',
                                      f'long_term_{self.args.dataset}_{self.args.split}.json')
-        
-        
+    
         with open(labels_file, "r", encoding="utf-8") as f:
             annotation_json_file = json.load(f)
 
-        # Transformr the json file into a pandas dataframe
+        # Transform the json file into a pandas dataframe
         annotations_dataframe = pd.DataFrame(annotation_json_file['annotations'])
-       
-        for v_f in os.listdir(video_feature_folder):
+
+        frames = 0
+        # Iterate through the filtered video features
+        for v_f in split_filtered_features_videos:
             v_f_abs_path = os.path.join(video_feature_folder, v_f)
-            videos = np.load(v_f_abs_path)[::sample_rate,]
-            #v_label_file_abs_path = os.path.join(label_folder, v_f.split('.')[0] + '.txt')
-            #labels = self.read_labels(v_label_file_abs_path)
-            #labels = labels[::sample_rate]
+            video_features = np.load(v_f_abs_path)
 
             #Correct video name and use the LED format
-            video_name = f'video_{int(v_f.split('.')[0].split('video')[-1].replace("_", "")) + self.gap}'
+            video_name = '_'.join(v_f.split('_')[:2])
+
             # Use video_name to get the labels from the annotations_dataframe
-            
             labels = annotations_dataframe[annotations_dataframe['video_name'] == video_name]['phases'].values.tolist()
            
-            if videos.shape[0] != len(labels):
-                raise ValueError(f"Video {v_f} has {videos.shape[0]} frames but {len(labels)} labels. Please check the dataset.")
+            if video_features.shape[0] != len(labels):
+                raise ValueError(f"Video {v_f} has {video_features.shape[0]} frames but {len(labels)} labels. Please check the dataset.")
            
-            self.videos.append(videos)
-            self.labels.append(labels)
-
-            # Dont undestand why this is needed, but it is in the original code
-            phase = 1
-            for i in range(len(labels)-1):
-                if labels[i] == labels[i+1]:
-                    continue
-                else:
-                    phase += 1
 
             self.video_names.append(v_f)
+            self.videos.append(video_features)
+            self.labels.append(labels)
+            frames += video_features.shape[0]
        
-        print('VideoDataset: Load dataset {} with {} videos.'.format(self.dataset, self.__len__()))
+        print('VideoDataset: Load dataset {}, split {} with {} videos and {} frames.'.format(self.dataset, self.split, self.__len__(), frames))
+
 
     def __len__(self):
         return len(self.videos)

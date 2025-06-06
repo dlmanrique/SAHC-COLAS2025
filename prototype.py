@@ -265,7 +265,7 @@ def base_predict(model, args, device,test_loader, pki = False,split='test'):
                     all_out = resize_list[0]
             
             confidence, predicted = torch.max(F.softmax(all_out.data, 1), 1)
-           
+
             # Calculate manual accuracy
             correct += ((predicted == labels).sum()).item()
             total += labels.shape[0]
@@ -274,68 +274,8 @@ def base_predict(model, args, device,test_loader, pki = False,split='test'):
             confidence = confidence.squeeze(0).tolist()
             
             labels = [label.item() for label in labels]
-            
-            pic_file = video_name[0].split('.')[0] + '-vis.png'
-            pic_path = os.path.join(pic_save_dir, pic_file)
-            segment_bars_with_confidence_score(pic_path, confidence_score=confidence, labels=[labels, predicted])
 
-          
-            predicted_phases_expand = []
-           
-            for i in predicted:
-                predicted_phases_expand = np.concatenate((predicted_phases_expand, [i]*5 )) # we downsample the framerate from 25fps to 5fps
-            
-          
             print(video_name)
-         
-            v_n = video_name[0]
-           
-            
-            v_n = re.findall(r"\d+\.?\d*",v_n)
-            
-            v_n = float(v_n[0])
-            target_video_file = "%02d_pred.txt"%(v_n)
-            print(target_video_file)
-           
-            if args.dataset == 'm2cai16':
-               
-                gt_file = 'test_workflow_video_%02d.txt'%(v_n)
-            else:
-               
-                gt_file = 'video%02d-phase.txt'%(v_n)
-           
-            g_ptr = open(os.path.join(gt_dir, gt_file), "r")
-            f_ptr = open(os.path.join(results_dir, target_video_file), 'w')
-           
- 
-            gt = g_ptr.readlines()[1:] ##
-          
-            gt = gt[::5]
-            print(len(gt), len(predicted_phases_expand))
-            
-            if len(gt) >  len(predicted_phases_expand):
-                lst = predicted_phases_expand[-1]
-                print(len(gt) - len(predicted_phases_expand))
-                for i in range(0,len(gt) - len(predicted_phases_expand)):
-                    predicted_phases_expand=np.append(predicted_phases_expand,lst)
-            else:
-                predicted_phases_expand = predicted_phases_expand[0:len(gt)]
-            print(len(gt), len(predicted_phases_expand))
-            assert len(predicted_phases_expand) == len(gt)
-           
-            # f_ptr.write("Frame\tPhase\n")
-            for index, line in enumerate(predicted_phases_expand):
-                # print(int(line),args.dataset)
-                phase_dict = phase2label_dicts[args.dataset]
-                p_phase = ''
-                for k,v in phase_dict.items():
-                    if v==int(line):
-                        p_phase = k
-                        break
-
-                f_ptr.write('{}\t{}\n'.format(index, p_phase))
-            f_ptr.close()
-
 
         print(correct/total)
 
