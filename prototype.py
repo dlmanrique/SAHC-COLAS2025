@@ -1,25 +1,14 @@
-
 import os
-import time
-from tracemalloc import start
 import torch
-import torchvision.models as models
 import torch.nn as nn
-from torch.utils.data import DataLoader
 import torch.nn.functional as F
-import pickle
-import os
-import re
-import argparse
-import numpy as np
-import random
-from thop import profile
-from utils import  fusion,segment_bars_with_confidence_score
-
 from tqdm import tqdm
+
+from utils import  fusion
+
+
 f_path = os.path.abspath('..')
 root_path = f_path.split('surgical_code')[0]
-
 
 loss_layer = nn.CrossEntropyLoss()
 mse_layer = nn.MSELoss(reduction='none')
@@ -117,6 +106,7 @@ def hierarch_train(args, model, train_loader, validation_loader, device, save_di
                     os.makedirs(save_dir)
                 torch.save(model.state_dict(), save_dir + '/best_{}.model'.format(epoch))
         print('Best Test: Acc {}, Epoch {}'.format(best_acc, best_epoch))
+
 
 def hierarch_test(args, model, test_loader, device, random_mask=False):
    

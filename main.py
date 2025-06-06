@@ -101,37 +101,48 @@ sample_rate = args.sample_rate
 test_sample_rate = args.test_sample_rate
 num_classes = len(phase2label_dicts[args.dataset])
 args.num_classes = num_classes
-# print(args.num_classes)
+
 num_layers_PG = args.num_layers_PG
 num_layers_R = args.num_layers_R
 num_R = args.num_R
+# TODO: Verify if this argument is neccesary
 args.split = 'test' if args.action == 'hierarch_predict' else 'train'
 
 
 print(args)
 
+# Initialize the model
 base_model=Hierarch_TCN2(args,num_layers_PG, num_layers_R, num_R, num_f_maps, dim, num_classes)
 
 
 
 if args.action == 'hierarch_train':
-    breakpoint()
+    
+    # Load train split
     video_traindataset = VideoDataset(args.dataset, args, split= 'Train')
     video_train_dataloader = DataLoader(video_traindataset, batch_size=1, shuffle=False, drop_last=False)
+
+    # TODO: Verify if the dataset has valid split. 
+    # Load test split
     video_testdataset = VideoDataset(args.dataset, args, split= 'Test')
-    video_test_dataloader = DataLoader(video_testdataset, batch_size=1, shuffle=False, drop_last=False) 
+    video_test_dataloader = DataLoader(video_testdataset, batch_size=1, shuffle=False, drop_last=False)
+
+    # Define the path to save model checkpoints
     model_save_dir = 'models/{}/'.format(args.dataset)
+
     hierarch_train(args, base_model, video_train_dataloader, video_test_dataloader, device, save_dir=model_save_dir, debug=True)
 
 elif args.action == 'hierarch_predict':
    
     # print('ssss')
-    
-    model_path = f'best_models_weights/best_{args.dataset}.model' # use your model
-    
+    # Load model weights
+    model_path = f'best_models_weights/best_{args.dataset}.model'
     base_model.load_state_dict(torch.load(model_path))
-    video_testdataset = VideoDataset(args.dataset, args)
+
+    # Load Test split
+    video_testdataset = VideoDataset(args.dataset, args, split= 'Test')
     video_test_dataloader = DataLoader(video_testdataset, batch_size=1, shuffle=False, drop_last=False)
+
     base_predict(base_model,args, device, video_test_dataloader)
 
 
