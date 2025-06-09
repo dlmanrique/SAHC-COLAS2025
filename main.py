@@ -133,7 +133,7 @@ if args.action == 'hierarch_train':
     
     # Load train split
     video_traindataset = VideoDataset(args.dataset, args, split= 'train')
-    video_train_dataloader = DataLoader(video_traindataset, batch_size=1, shuffle=False, drop_last=False, worker_init_fn=seed_worker, generator=g)
+    video_train_dataloader = DataLoader(video_traindataset, batch_size=1, shuffle=False, drop_last=False, worker_init_fn=seed_worker, generator=g) # Original code set shuffle as False
 
     # TODO: Verify if the dataset has valid split. 
     # Load test split
