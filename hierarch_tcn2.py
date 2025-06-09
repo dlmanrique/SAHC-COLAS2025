@@ -2,12 +2,25 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from collections import namedtuple
-import torchvision
-from decoder import TransformerDecoder, TransformerDecoderLayer
-from PositionalEncoding import FixedPositionalEncoding, LearnedPositionalEncoding
 import copy
 import numpy as np
+import random
+import os
+from decoder import TransformerDecoder, TransformerDecoderLayer
+from PositionalEncoding import FixedPositionalEncoding, LearnedPositionalEncoding
+
+# Configure device and seed everithing for reproducibility
+seed = 19980125
+
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)  # if you are using multi-GPU.
+np.random.seed(seed)  # Numpy module.
+random.seed(seed)  # Python random module.
+torch.manual_seed(seed)
+torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.deterministic = True
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
 
 
@@ -134,7 +147,7 @@ class FPN(nn.Module):
         So we choose bilinear upsample which supports arbitrary output sizes.
         '''
         _,_,W = y.size()
-        return F.upsample(x, size=W, mode='linear') + y
+        return F.interpolate(x.cpu(), size=W, mode='linear').to(x.device) + y
 
     def forward(self,out_list):
         # Here out_list refers to F^{0}, F^{1}, F^{2}, F^{3} (the features from the refinement layers)
@@ -189,13 +202,14 @@ class Hierarch_TCN2(nn.Module):
             print('position encoding :',  args.positional_encoding_type)
 
             decoder_layer = TransformerDecoderLayer(num_f_maps, args.head_num, args.embed_num,
-                                            0.1, 'relu',normalize_before=True)
+                                            0.1, 'relu', normalize_before=True)
             decoder_norm = nn.LayerNorm(num_f_maps)
 
             self.decoder = TransformerDecoder(decoder_layer, args.block_num, decoder_norm,
                                     return_intermediate=False)
             
         self.prototpye = torch.nn.Parameter(torch.zeros(1, 64, num_classes), requires_grad=True)
+
 
     def forward(self, x):
         #x.shape -> (batch, num_frames, num_features_resnet50)

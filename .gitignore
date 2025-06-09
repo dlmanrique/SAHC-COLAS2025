@@ -1,3 +1,5 @@
 datasets
 best_models_weights
 Resnet50_video_features
+models
+wandb

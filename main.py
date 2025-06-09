@@ -1,17 +1,12 @@
-
-from enum import Flag
 import torch
-import torchvision.models as models
 import torch.nn as nn
 from torch.utils.data import DataLoader
-import torch.nn.functional as F
-import pickle
 import os
 import argparse
 import numpy as np
 import random
-from tqdm import tqdm
-from sklearn.model_selection  import KFold
+import wandb
+from datetime import datetime
 
 from dataset import *
 from prototype import hierarch_train,base_predict
@@ -19,9 +14,10 @@ from utils import *
 from hierarch_tcn2 import Hierarch_TCN2
 # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
+# Configure device and seed everithing for reproducibility
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 seed = 19980125
-# print(device)
+
 torch.manual_seed(seed)
 torch.cuda.manual_seed(seed)
 torch.cuda.manual_seed_all(seed)  # if you are using multi-GPU.
@@ -30,21 +26,30 @@ random.seed(seed)  # Python random module.
 torch.manual_seed(seed)
 torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+torch.use_deterministic_algorithms(True)
+
+g = torch.Generator()
+g.manual_seed(seed)
+
+def seed_worker(worker_id):
+    worker_seed = seed + worker_id
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--action', default='hierarch_train')
 parser.add_argument('--dataset', default="Cholec80")
 parser.add_argument('--dataset_path', default="./datasets/{}/")
-
-# parser.add_argument('--dataset', default="cholec80")
-# parser.add_argument('--dataset_path', default="./datasets/cholec80")
-parser.add_argument('--sample_rate', default=5, type=int)
-parser.add_argument('--test_sample_rate', default=5, type=int)
+parser.add_argument('--sample_rate', default=1, type=int)
+parser.add_argument('--test_sample_rate', default=1, type=int)
 parser.add_argument('--refine_model', default='gru')
 parser.add_argument('--num_classes', default=7)
 parser.add_argument('--model', default="Hierarch_TCN2")
 parser.add_argument('--learning_rate', default=5e-4, type=float)
-parser.add_argument('--epochs', default=100)
+parser.add_argument('--epochs', type=int, default=100)
 parser.add_argument('--gpu', default="3", type=str)
 parser.add_argument('--combine_loss', default=False, type=bool)
 parser.add_argument('--ms_loss', default=True, type=bool)
@@ -73,7 +78,16 @@ learning_rate = 5e-5
 epochs = 100
 refine_epochs = 40
 
-#f_path = os.path.abspath('..')
+# WandB configuration
+exp_name = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+
+wandb.init(
+    project='SAHC-COLAS2025', 
+    entity = 'endovis_bcv',
+    config=vars(args), 
+    name=exp_name
+    )
+
 root_path = os.getcwd()
 
 # Configure the number of possible classes based on the dataset. For Cholec80, Autolaparo and HeiChole is 7
@@ -101,6 +115,7 @@ sample_rate = args.sample_rate
 test_sample_rate = args.test_sample_rate
 num_classes = len(phase2label_dicts[args.dataset])
 args.num_classes = num_classes
+args.datetime = exp_name
 
 num_layers_PG = args.num_layers_PG
 num_layers_R = args.num_layers_R
@@ -119,13 +134,13 @@ base_model=Hierarch_TCN2(args,num_layers_PG, num_layers_R, num_R, num_f_maps, di
 if args.action == 'hierarch_train':
     
     # Load train split
-    video_traindataset = VideoDataset(args.dataset, args, split= 'Train')
-    video_train_dataloader = DataLoader(video_traindataset, batch_size=1, shuffle=False, drop_last=False)
+    video_traindataset = VideoDataset(args.dataset, args, split= 'train')
+    video_train_dataloader = DataLoader(video_traindataset, batch_size=1, shuffle=False, drop_last=False, worker_init_fn=seed_worker, generator=g)
 
     # TODO: Verify if the dataset has valid split. 
     # Load test split
-    video_testdataset = VideoDataset(args.dataset, args, split= 'Test')
-    video_test_dataloader = DataLoader(video_testdataset, batch_size=1, shuffle=False, drop_last=False)
+    video_testdataset = VideoDataset(args.dataset, args, split= 'test')
+    video_test_dataloader = DataLoader(video_testdataset, batch_size=1, shuffle=False, drop_last=False, worker_init_fn=seed_worker, generator=g)
 
     # Define the path to save model checkpoints
     model_save_dir = 'models/{}/'.format(args.dataset)

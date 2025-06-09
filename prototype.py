@@ -3,109 +3,142 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
+import wandb
+import numpy as np
+import random
 
 from utils import  fusion
+from evaluation_metrics import MetricsEvaluator
 
 
-f_path = os.path.abspath('..')
-root_path = f_path.split('surgical_code')[0]
+# Configure device and seed everithing for reproducibility
+seed = 19980125
+
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)  # if you are using multi-GPU.
+np.random.seed(seed)  # Numpy module.
+random.seed(seed)  # Python random module.
+torch.manual_seed(seed)
+torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.deterministic = True
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+
 
 loss_layer = nn.CrossEntropyLoss()
 mse_layer = nn.MSELoss(reduction='none')
+metrics_evaluator = MetricsEvaluator()
 
 
 def hierarch_train(args, model, train_loader, validation_loader, device, save_dir = 'models', debug = False):
-   
+    
+    
+    # Send the model to the GPU and create the folder to save the checkpoints
     model.to(device)
-    num_classes = args.num_classes
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     
+    # Initialize variables to keep track of the best epoch and accuracy
     best_epoch = 0
-    best_acc = 0
+    best_f1 = 0
     model.train()
     save_name = 'hier{}_msloss{}_trans{}'.format(args.hier,args.ms_loss,args.trans)
-    save_dir = os.path.join(save_dir, args.model,save_name)
-    for epoch in range(1, args.epochs + 1):
+    save_dir = os.path.join(save_dir, args.model, save_name, args.datetime)
+
+    # Training loop
+    for epoch in tqdm(range(1, args.epochs + 1)):
+        # Lr decay every 30 epochs
         if epoch % 30 == 0:
             args.learning_rate = args.learning_rate * 0.5
        
         correct = 0
         total = 0
         loss_item = 0
-        ce_item = 0 
         ms_item = 0
-        lc_item = 0
-        gl_item = 0
         optimizer = torch.optim.Adam(model.parameters(), args.learning_rate, weight_decay=1e-5)
         max_seq = 0
         mean_len = 0
         ans = 0
-        max_phase = 0
-        for (video, labels, video_name) in (train_loader):
         
+        # Iterate over the training data
+        for (video, labels, video_name) in tqdm(train_loader):
                 
-             
-                labels = torch.Tensor(labels).long()
-              
-                    
-                video, labels = video.to(device), labels.to(device)
+            video_name = video_name[0]
+    
+            labels = torch.Tensor(labels).long()
+            
+            video, labels = video.to(device), labels.to(device)
+            
+            predicted_list, feature_list, prototype = model(video)
+            
+            mean_len += predicted_list[0].size(-1)
+            ans += 1
+            all_out, resize_list, labels_list = fusion(predicted_list, labels, args)
 
-              
-                predicted_list, feature_list, prototype = model(video)
-               
-                mean_len += predicted_list[0].size(-1)
-                ans += 1
-                all_out, resize_list, labels_list = fusion(predicted_list,labels, args)
-
-                max_seq = max(max_seq, video.size(1))
-              
+            max_seq = max(max_seq, video.size(1))
+            
+            loss = 0 
+            
+            if args.ms_loss: # Default True
+                ms_loss = 0
+                # Iterate over the 4th dimensions (F0, F1, F2, F3)
+                for p,l in zip(resize_list, labels_list):
+                    # Guess L_frame is this one
+                    ms_loss += loss_layer(p.transpose(2, 1).contiguous().view(-1, args.num_classes), l.view(-1))
+                    # Guess L_segment is this one
+                    ms_loss += torch.mean(torch.clamp(mse_layer(F.log_softmax(p[:, :, 1:], dim=1), F.log_softmax(p.detach()[:, :, :-1], dim=1)), min=0, max=16))
                 
+                loss = loss + ms_loss
+                ms_item += ms_loss.item()
 
-                loss = 0 
-                
-                if args.ms_loss:
-                    ms_loss = 0
-                  
-                    for p,l in zip(resize_list,labels_list):
-                        ms_loss += loss_layer(p.transpose(2, 1).contiguous().view(-1, args.num_classes), l.view(-1))
-                        ms_loss += torch.mean(torch.clamp(mse_layer(F.log_softmax(p[:, :, 1:], dim=1), F.log_softmax(p.detach()[:, :, :-1], dim=1)), min=0, max=16))
-                    loss = loss + ms_loss
-                    ms_item += ms_loss.item()
+            optimizer.zero_grad()
+            loss_item += loss.item()
 
-                optimizer.zero_grad()
-                loss_item += loss.item()
+            
+            if args.last:# Default is False
+                all_out =  resize_list[-1]
 
-             
-                if args.last:
-                    all_out =  resize_list[-1]
-                if args.first:
-                    all_out = resize_list[0]
-                
-                # print(all_out.size())
-                loss.backward()
+            if args.first: # Default is True
+                all_out = resize_list[0]
+            
 
-                optimizer.step()
-               
-                
-                _, predicted = torch.max(all_out.data, 1)
-               
-                # labels = labels_list[-1]
-                correct += ((predicted == labels).sum()).item()
-                total += labels.shape[0]
-                # total +=1
+            loss.backward()
 
-        print('Train Epoch {}: Acc {}, Loss {}, ms {}'.format(epoch, correct / total, loss_item /total,  ms_item/total))
+            optimizer.step()
+            
+            
+            _, predicted = torch.max(all_out.data, 1)
+            
+
+            correct += ((predicted == labels).sum()).item()
+            total += labels.shape[0]
+
+            wandb.log({'Train Loss': loss.item()})
+
+
+        print('Train Epoch {}: Acc {}, Loss {}, ms {}'.format(epoch, correct/total, loss_item,  ms_item))
+
         if debug:
+            print('Validation at epoch {}'.format(epoch))
             # save_dir
-            test_acc, predicted, out_pro, test_video_name=hierarch_test(args, model, validation_loader, device)
-            if test_acc > best_acc:
-                best_acc = test_acc
+            test_acc, predicted, out_pro, test_video_name, metrics_results = hierarch_test(args, model, validation_loader, device)
+
+            if args.dataset == 'Cholec80':
+                f1_score = metrics_results[args.dataset]['mean']['f1_score']
+            else:  
+                f1_score = metrics_results[args.dataset]['f1_score']     
+
+            if f1_score > best_f1:
+                best_f1 = f1_score
                 best_epoch = epoch
                 if not os.path.exists(save_dir):
                     os.makedirs(save_dir)
                 torch.save(model.state_dict(), save_dir + '/best_{}.model'.format(epoch))
-        print('Best Test: Acc {}, Epoch {}'.format(best_acc, best_epoch))
+
+                wandb.log({'Best metrics': metrics_results[args.dataset]})
+
+        print('Best Test: F1 {}, Epoch {}'.format(best_f1, best_epoch))
+
 
 
 def hierarch_test(args, model, test_loader, device, random_mask=False):
@@ -116,31 +149,22 @@ def hierarch_test(args, model, test_loader, device, random_mask=False):
     model.eval()
    
     with torch.no_grad():
-        
-        
             correct = 0
             total = 0
             loss_item = 0
-            all_preds = []
-            center = torch.ones((1, 64, num_classes), requires_grad=False)
-            center = center.to(device)
-            label_correct={}
-            label_total= {}
             probabilty_list = []
-            video_name_list=[]
-            precision=0
-            recall = 0
-            ce_item = 0 
             ms_item = 0
-            lc_item = 0
-            gl_item = 0
-            max_seq = 0 
-            for n_iter,(video, labels, video_name ) in enumerate(test_loader):
+            max_seq = 0
+            all_video_names = []
+            all_predictions = []
+            all_labels = []
+
+            for n_iter,(video, labels, video_name) in enumerate(test_loader):
                 
-                    
+                video_name = video_name[0]
+
                 labels = torch.Tensor(labels).long()
               
-                    
                 video, labels = video.to(device), labels.to(device)
                 max_seq = max(max_seq, video.size(1))
                
@@ -150,8 +174,6 @@ def hierarch_test(args, model, test_loader, device, random_mask=False):
              
                 loss = 0 
 
-              
-                
                 if args.ms_loss:
                     ms_loss = 0
                     for p,l in zip(resize_list,labels_list):
@@ -178,45 +200,23 @@ def hierarch_test(args, model, test_loader, device, random_mask=False):
                 correct += ((predicted == labels).sum()).item()
                 total += labels.shape[0]
 
-              
-                video_name_list.append(video_name)
-
-                all_preds.append(predicted)
-
                 all_out = F.softmax(all_out,dim=1)
-
                 probabilty_list.append(all_out.transpose(1,2))
 
-            print('Test  Acc {}, Loss {}, ms {}'.format( correct / total, loss_item /total, ms_item/total))
+                # Save all labels, predictions and video id to calculate metrics
+                all_predictions.append(predicted.cpu())
+                all_labels.append(labels.cpu())
+                all_video_names.append(video_name)
 
+            # All metrics calculation
+            metrics_results = metrics_evaluator.evaluation_per_dataset(all_predictions, all_labels, all_video_names, args.dataset)
+            print('Test  Acc {}, Loss {}, ms {}'.format(correct/total, loss_item, ms_item))
 
-            for (kc, vc), (kall, vall) in zip(label_correct.items(),label_total.items()):
-                print("{} acc: {}".format(kc, vc/vall))
-            return correct / total, all_preds, probabilty_list, video_name_list
+            return correct / total, all_predictions, probabilty_list, all_video_names, metrics_results
         
 
 def base_predict(model, args, device,test_loader, pki = False,split='test'):
 
-    phase2label_dicts = {
-    'Cholec80':{
-    'Preparation':0,
-    'CalotTriangleDissection':1,
-    'ClippingCutting':2,
-    'GallbladderDissection':3,
-    'GallbladderPackaging':4,
-    'CleaningCoagulation':5,
-    'GallbladderRetraction':6},
-    
-    'M2CAI':{
-    'TrocarPlacement':0,
-    'Preparation':1,
-    'CalotTriangleDissection':2,
-    'ClippingCutting':3,
-    'GallbladderDissection':4,
-    'GallbladderPackaging':5,
-    'CleaningCoagulation':6,
-    'GallbladderRetraction':7}
-    }
 
     model.to(device)
     model.eval()

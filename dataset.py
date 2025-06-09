@@ -1,12 +1,23 @@
-#from numpy.lib.function_base import append
-from torch.utils.data import Dataset, DataLoader
-from torchvision.datasets.folder import default_loader
-from torchvision import transforms
+from torch.utils.data import Dataset
 import os
 import numpy as np
 import torch
 import pandas as pd
 import json
+import random
+
+seed = 19980125
+
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)  # if you are using multi-GPU.
+np.random.seed(seed)  # Numpy module.
+random.seed(seed)  # Python random module.
+torch.manual_seed(seed)
+torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.deterministic = True
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+
 
 phase2label_dicts = {
     'Cholec80':{
@@ -31,12 +42,12 @@ phase2label_dicts = {
 
 
 datasets_2_videos_ids = {
-    'Autolaparo': {'Train': [f'video_{i:02}' for i in range(1, 11)], 'Valid': [f'video_{i:02}' for i in range(11, 15)], 'Test': [f'video_{i:02}' for i in range(16, 21)]},
-    'Cholec80': {'Train': [f'video_{i:02}' for i in range(22, 62)], 'Test': [f'video_{i:02}' for i in range(62, 102)]},
-    'HeiChole': {'Train': [f'video_{i:02}' for i in range(102, 118)], 'Test': [f'video_{i:02}' for i in range(118, 126)]},
-    'HeiCo': {'Train': [f'video_{i:02}' for i in range(126, 133)] + [f'video_{i:02}' for i in range(136, 143)] + [f'video_{i:02}' for i in range(146, 153)],
-              'Test': [f'video_{i:02}' for i in range(133, 136)] + [f'video_{i:02}' for i in range(143, 146)] + [f'video_{i:02}' for i in range(153, 156)]},
-    'M2CAI': {'Train': [f'video_{i:02}' for i in range(156, 183)], 'Test': [f'video_{i:02}' for i in range(183, 197)]},
+    'Autolaparo': {'train': [f'video_{i:02}' for i in range(1, 11)], 'valid': [f'video_{i:02}' for i in range(11, 15)], 'test': [f'video_{i:02}' for i in range(16, 21)]},
+    'Cholec80': {'train': [f'video_{i:02}' for i in range(22, 62)], 'test': [f'video_{i:02}' for i in range(62, 102)]},
+    'HeiChole': {'train': [f'video_{i:02}' for i in range(102, 118)], 'test': [f'video_{i:02}' for i in range(118, 126)]},
+    'HeiCo': {'train': [f'video_{i:02}' for i in range(126, 133)] + [f'video_{i:02}' for i in range(136, 143)] + [f'video_{i:02}' for i in range(146, 153)],
+              'test': [f'video_{i:02}' for i in range(133, 136)] + [f'video_{i:02}' for i in range(143, 146)] + [f'video_{i:02}' for i in range(153, 156)]},
+    'M2CAI': {'train': [f'video_{i:02}' for i in range(156, 183)], 'test': [f'video_{i:02}' for i in range(183, 197)]},
 }
 
 
@@ -58,11 +69,10 @@ class VideoDataset(Dataset):
         self.sample_rate = args.sample_rate
         self.args = args
         self.split = split
-        self.video_names = datasets_2_videos_ids[self.dataset]
         self.videos = []
         self.labels = []
-        ###      
-        self.video_names = []
+        self.videos_names = []
+
 
         # Obtain all dataset videos features and filter depending on the split
         video_feature_folder = os.path.join('Resnet50_video_features', dataset)
@@ -72,7 +82,7 @@ class VideoDataset(Dataset):
 
         # Load corresponding labels
         labels_file = os.path.join(os.getcwd(), 'DATASETS/PHASES/annotations/Original_Datasets_Splits_Annotations/json_files',
-                                     f'long_term_{self.args.dataset}_{self.args.split}.json')
+                                     f'long_term_{self.dataset}_{self.split}.json')
     
         with open(labels_file, "r", encoding="utf-8") as f:
             annotation_json_file = json.load(f)
@@ -96,9 +106,9 @@ class VideoDataset(Dataset):
                 raise ValueError(f"Video {v_f} has {video_features.shape[0]} frames but {len(labels)} labels. Please check the dataset.")
            
 
-            self.video_names.append(v_f)
             self.videos.append(video_features)
             self.labels.append(labels)
+            self.videos_names.append(v_f.split('_features')[0])
             frames += video_features.shape[0]
        
         print('VideoDataset: Load dataset {}, split {} with {} videos and {} frames.'.format(self.dataset, self.split, self.__len__(), frames))
@@ -110,7 +120,8 @@ class VideoDataset(Dataset):
 
   
     def __getitem__(self, item):
-        video, label, video_name = self.videos[item], self.labels[item], self.video_names[item]
+        video, label, video_name = self.videos[item], self.labels[item], self.videos_names[item]
+        
         return video, label, video_name
     
     

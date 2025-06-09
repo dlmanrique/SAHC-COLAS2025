@@ -1,14 +1,28 @@
 from matplotlib import pyplot as plt
 from matplotlib import *
-import os
-import sys
 import numpy as np
-import torch
 import torch.nn.functional as F
 import torch.nn as nn
+import random
+import torch
+import os
+
+# Configure device and seed everithing for reproducibility
+seed = 19980125
+
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)  # if you are using multi-GPU.
+np.random.seed(seed)  # Numpy module.
+random.seed(seed)  # Python random module.
+torch.manual_seed(seed)
+torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.deterministic = True
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+
 # from MulticoreTSNE import MulticoreTSNE as TSNE
 
-import seaborn as sns
+
 phase2label_dicts = {
     'Cholec80':{
     'Preparation':0,
@@ -29,6 +43,7 @@ phase2label_dicts = {
     'CleaningCoagulation':6,
     'GallbladderRetraction':7}
 }
+
 def label2phase(labels, phase2label_dict):
     label2phase_dict = {phase2label_dict[k]:k for k in phase2label_dict.keys()}
     phases = [label2phase_dict[label] for label in labels]

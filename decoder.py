@@ -5,6 +5,22 @@ import torch.nn.functional as F
 from typing import Optional, List
 import torch.nn.init as init
 import copy
+import numpy as np
+import random
+import os
+
+seed = 19980125
+
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)  # if you are using multi-GPU.
+np.random.seed(seed)  # Numpy module.
+random.seed(seed)  # Python random module.
+torch.manual_seed(seed)
+torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.deterministic = True
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+
 
 
 
