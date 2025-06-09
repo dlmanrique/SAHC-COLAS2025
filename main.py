@@ -113,8 +113,6 @@ num_f_maps = 64
 dim = 2048
 sample_rate = args.sample_rate
 test_sample_rate = args.test_sample_rate
-num_classes = len(phase2label_dicts[args.dataset])
-args.num_classes = num_classes
 args.datetime = exp_name
 
 num_layers_PG = args.num_layers_PG
@@ -127,7 +125,7 @@ args.split = 'test' if args.action == 'hierarch_predict' else 'train'
 print(args)
 
 # Initialize the model
-base_model=Hierarch_TCN2(args,num_layers_PG, num_layers_R, num_R, num_f_maps, dim, num_classes)
+base_model=Hierarch_TCN2(args,num_layers_PG, num_layers_R, num_R, num_f_maps, dim, args.num_classes)
 
 
 
