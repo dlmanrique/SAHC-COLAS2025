@@ -143,9 +143,7 @@ def hierarch_train(args, model, train_loader, validation_loader, device, save_di
 
 def hierarch_test(args, model, test_loader, device, random_mask=False):
    
-    model.to(device)
-    num_classes = args.num_classes
-    
+    model.to(device)    
     model.eval()
    
     with torch.no_grad():
@@ -214,6 +212,7 @@ def hierarch_test(args, model, test_loader, device, random_mask=False):
 
             return correct / total, all_predictions, probabilty_list, all_video_names, metrics_results
         
+
 
 def base_predict(model, args, device,test_loader, pki = False,split='test'):
 

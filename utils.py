@@ -1,11 +1,9 @@
-from matplotlib import pyplot as plt
-from matplotlib import *
 import numpy as np
-import torch.nn.functional as F
-import torch.nn as nn
 import random
 import torch
 import os
+import torch.nn.functional as F
+import torch.nn as nn
 
 # Configure device and seed everithing for reproducibility
 seed = 19980125
