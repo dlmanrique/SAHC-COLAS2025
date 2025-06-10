@@ -6,6 +6,7 @@ from tqdm import tqdm
 import wandb
 import numpy as np
 import random
+from scipy.io import savemat
 
 from utils import  fusion
 from evaluation_metrics import MetricsEvaluator
@@ -116,7 +117,8 @@ def hierarch_train(args, model, train_loader, validation_loader, device, save_di
             wandb.log({'Train Loss': loss.item()})
 
 
-        print('Train Epoch {}: Acc {}, Loss {}, ms {}'.format(epoch, correct/total, loss_item,  ms_item))
+        print('Train Epoch {}: Acc {}, Loss {}, ms {}\n'.format(epoch, correct/total, loss_item,  ms_item))
+        wandb.log({'Train Accuracy': correct/total})
 
         if debug:
             print('Validation at epoch {}'.format(epoch))
@@ -137,7 +139,7 @@ def hierarch_train(args, model, train_loader, validation_loader, device, save_di
 
                 wandb.log({'Best metrics': metrics_results[args.dataset]})
 
-        print('Best Test: F1 {}, Epoch {}'.format(best_f1, best_epoch))
+        print('Best Test: F1 {}, Epoch {}\n'.format(best_f1, best_epoch))
 
 
 
@@ -205,6 +207,8 @@ def hierarch_test(args, model, test_loader, device, random_mask=False):
                 all_predictions.append(predicted.cpu())
                 all_labels.append(labels.cpu())
                 all_video_names.append(video_name)
+                
+
 
             # All metrics calculation
             metrics_results = metrics_evaluator.evaluation_per_dataset(all_predictions, all_labels, all_video_names, args.dataset)
