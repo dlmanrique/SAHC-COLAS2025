@@ -125,7 +125,7 @@ def hierarch_train(args, model, train_loader, validation_loader, device, save_di
             # save_dir
             test_acc, predicted, out_pro, test_video_name, metrics_results = hierarch_test(args, model, validation_loader, device)
 
-            if args.dataset == 'Cholec80':
+            if args.dataset == 'Cholec80' or args.dataset == 'M2CAI':
                 f1_score = metrics_results[args.dataset]['mean']['f1_score']
             else:  
                 f1_score = metrics_results[args.dataset]['f1_score']     
@@ -208,6 +208,12 @@ def hierarch_test(args, model, test_loader, device, random_mask=False):
                 all_labels.append(labels.cpu())
                 all_video_names.append(video_name)
                 
+                # Save gt and predictions
+                os.makedirs(f'Annotations_dummy/{args.dataset}/{args.datetime}', exist_ok=True)
+                savemat(f'Annotations_dummy/{args.dataset}/{args.datetime}/{video_name}_annots.mat', {'Annots': labels.cpu().numpy()})
+
+                os.makedirs(f'Predictions_dummy/{args.dataset}/{args.datetime}', exist_ok=True)
+                savemat(f'Predictions_dummy/{args.dataset}/{args.datetime}/{video_name}_preds.mat', {'Preds': predicted.cpu().numpy()})
 
 
             # All metrics calculation
