@@ -75,7 +75,7 @@ class VideoDataset(Dataset):
 
 
         # Obtain all dataset videos features and filter depending on the split
-        video_feature_folder = os.path.join('Resnet50_video_features', dataset)
+        video_feature_folder = os.path.join('/media/SSD3/dlmanrique/Endovis/MICCAI2025/SOTAS/Transvnet/Trans-SVNet-COLAS-2025/Resnet_features_SAHC', dataset)
         # Filter features based on video id and split
         dataset_split_video_names = datasets_2_videos_ids[self.dataset][self.split]
         split_filtered_features_videos = [f for f in os.listdir(video_feature_folder) if any(f.startswith(v) for v in dataset_split_video_names)]
@@ -113,6 +113,7 @@ class VideoDataset(Dataset):
        
         print('VideoDataset: Load dataset {}, split {} with {} videos and {} frames.'.format(self.dataset, self.split, self.__len__(), frames))
 
+        
 
     def __len__(self):
         return len(self.videos)

@@ -217,6 +217,7 @@ class Hierarch_TCN2(nn.Module):
         out_list = []
         f_list = []
         x = x.permute(0,2,1) # x -> (batch, num_features_resnet50, num_frames)
+        x = x.float()
         # RCLD layers
         f, out1 = self.PG(x) # f.shape -> (batch, 64, num_frames) ; out1.shape -> (batch, num_classes, num_frames) 
     
