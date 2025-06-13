@@ -294,7 +294,7 @@ class MetricsEvaluator:
         if not len(dataset_preds) == len(dataset_gts):
             AssertionError(f"Length of predictions and ground truths do not match for {dataset_name}. ")
 
-        if dataset_name == "AutoLaparo":
+        if dataset_name == "Autolaparo":
             results[dataset_name] = self.calculate_metrics(dataset_preds, dataset_gts, ["accuracy", "precision", "recall", "jaccard", 'f1_score'], dataset_name)
         
         elif dataset_name == "Cholec80":
@@ -429,7 +429,7 @@ class MetricsEvaluator:
 
             results[dataset_name] = {"mean": metrics_mean, "std": metrics_std}
 
-
+        
         wandb.log({dataset_name: results[dataset_name]})
 
         return results

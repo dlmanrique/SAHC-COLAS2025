@@ -137,7 +137,11 @@ if args.action == 'hierarch_train':
 
     # TODO: Verify if the dataset has valid split. 
     # Load test split
-    video_testdataset = VideoDataset(args.dataset, args, split= 'test')
+    if args.dataset == 'Autolaparo':
+        video_testdataset = VideoDataset(args.dataset, args, split= 'valid')
+    else:
+        video_testdataset = VideoDataset(args.dataset, args, split= 'test')
+
     video_test_dataloader = DataLoader(video_testdataset, batch_size=1, shuffle=False, drop_last=False, worker_init_fn=seed_worker, generator=g)
 
     # Define the path to save model checkpoints
